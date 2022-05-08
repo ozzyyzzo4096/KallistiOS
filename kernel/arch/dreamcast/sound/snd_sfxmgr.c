@@ -45,16 +45,16 @@ static uint64 sfx_inuse = 0;
 
 /* Unload all loaded samples and free their SPU RAM */
 void snd_sfx_unload_all() {
-    snd_effect_t * t, * n;
+    snd_effect_t* t, * n;
 
     t = LIST_FIRST(&snd_effects);
 
-    while(t) {
+    while (t) {
         n = LIST_NEXT(t, list);
 
         snd_mem_free(t->locl);
 
-        if(t->stereo)
+        if (t->stereo)
             snd_mem_free(t->locr);
 
         free(t);
@@ -67,16 +67,16 @@ void snd_sfx_unload_all() {
 
 /* Unload a single sample */
 void snd_sfx_unload(sfxhnd_t idx) {
-    snd_effect_t * t = (snd_effect_t *)idx;
-    
-    if(idx == SFXHND_INVALID) {
+    snd_effect_t* t = (snd_effect_t*)idx;
+
+    if (idx == SFXHND_INVALID) {
         dbglog(DBG_WARNING, "snd_sfx: can't unload an invalid SFXHND\n");
         return;
     }
-    
+
     snd_mem_free(t->locl);
 
-    if(t->stereo)
+    if (t->stereo)
         snd_mem_free(t->locr);
 
     LIST_REMOVE(t, list);
@@ -94,19 +94,19 @@ void snd_sfx_unload(sfxhnd_t idx) {
 
  */
 
-/* Load a sound effect from a WAV file and return a handle to it */
-sfxhnd_t snd_sfx_load(const char *fn) {
+ /* Load a sound effect from a WAV file and return a handle to it */
+sfxhnd_t snd_sfx_load(const char* fn) {
     file_t  fd;
     uint32  len, hz;
-    uint16  *tmp, stereo, bitsize, fmt;
-    snd_effect_t *t;
+    uint16* tmp, stereo, bitsize, fmt;
+    snd_effect_t* t;
     int ownmem;
 
-    dbglog(DBG_DEBUG, "snd_sfx: loading effect %s\n", fn);
+    //dbglog(DBG_DEBUG, "snd_sfx: loading effect %s\n", fn);
 
     fd = fs_open(fn, O_RDONLY);
 
-    if(fd <= FILEHND_INVALID) {
+    if (fd <= FILEHND_INVALID) {
         dbglog(DBG_WARNING, "snd_sfx: can't open sfx %s\n", fn);
         return SFXHND_INVALID;
     }
@@ -116,7 +116,7 @@ sfxhnd_t snd_sfx_load(const char *fn) {
     fs_seek(fd, 0x08, SEEK_SET);
     fs_read(fd, &hz, 4);
 
-    if(strncmp((char*)&hz, "WAVE", 4)) {
+    if (strncmp((char*)&hz, "WAVE", 4)) {
         dbglog(DBG_WARNING, "snd_sfx: file is not RIFF WAVE\n");
         fs_close(fd);
         return SFXHND_INVALID;
@@ -134,62 +134,64 @@ sfxhnd_t snd_sfx_load(const char *fn) {
     fs_seek(fd, 0x28, SEEK_SET);
     fs_read(fd, &len, 4);
 
+    /*
     dbglog(DBG_DEBUG, "WAVE file is %s, %luHZ, %d bits/sample, %lu bytes total,"
-           " format %d\n", stereo == 1 ? "mono" : "stereo", hz, bitsize, len, fmt);
+        " format %d\n", stereo == 1 ? "mono" : "stereo", hz, bitsize, len, fmt);
+    */
 
     /* Try to mmap it and if that works, no need to copy it again */
     ownmem = 0;
-    tmp = (uint16 *)fs_mmap(fd);
+    tmp = (uint16*)fs_mmap(fd);
 
-    if(!tmp) {
+    if (!tmp) {
         tmp = malloc(len);
         fs_read(fd, tmp, len);
         ownmem = 1;
     }
     else {
-        tmp = (uint16 *)(((uint8 *)tmp) + fs_tell(fd));
+        tmp = (uint16*)(((uint8*)tmp) + fs_tell(fd));
     }
 
     fs_close(fd);
 
     t = malloc(sizeof(snd_effect_t));
     memset(t, 0, sizeof(snd_effect_t));
-    
+
     /* Common characteristics not impacted by stream type */
     t->rate = hz;
     t->stereo = stereo - 1;
 
-    if(stereo == 1) {
+    if (stereo == 1) {
         /* Mono PCM/ADPCM */
         t->len = len / 2; /* 16-bit samples */
         t->rate = hz;
         t->locl = snd_mem_malloc(len);
 
-        if(t->locl)
+        if (t->locl)
             spu_memload(t->locl, tmp, len);
 
         t->locr = 0;
         t->stereo = 0;
 
-        if(fmt == 20) {
+        if (fmt == 20) {
             t->fmt = AICA_SM_ADPCM;
             t->len *= 4;    /* 4-bit packed samples */
         }
         else
             t->fmt = AICA_SM_16BIT;
     }
-    else if(stereo == 2 && fmt == 1) {
+    else if (stereo == 2 && fmt == 1) {
         /* Stereo PCM */
         uint32 i;
-        uint16 * sepbuf;
+        uint16* sepbuf;
 
         sepbuf = malloc(len / 2);
 
-        for(i = 0; i < len / 2; i += 2) {
+        for (i = 0; i < len / 2; i += 2) {
             sepbuf[i / 2] = tmp[i + 1];
         }
 
-        for(i = 0; i < len / 2; i += 2) {
+        for (i = 0; i < len / 2; i += 2) {
             tmp[i / 2] = tmp[i];
         }
 
@@ -198,10 +200,10 @@ sfxhnd_t snd_sfx_load(const char *fn) {
         t->locl = snd_mem_malloc(len / 2);
         t->locr = snd_mem_malloc(len / 2);
 
-        if(t->locl)
+        if (t->locl)
             spu_memload(t->locl, tmp, len / 2);
 
-        if(t->locr)
+        if (t->locr)
             spu_memload(t->locr, sepbuf, len / 2);
 
         t->stereo = 1;
@@ -209,13 +211,13 @@ sfxhnd_t snd_sfx_load(const char *fn) {
 
         free(sepbuf);
     }
-    else if(stereo == 2 && fmt == 20) {
+    else if (stereo == 2 && fmt == 20) {
         /* Stereo ADPCM */
 
         /* We have to be careful here, because the second sample might not
            start on a nice even dword boundary. We take the easy way out
            and just malloc a second buffer. */
-        uint8 * buf2 = malloc(len / 2);
+        uint8* buf2 = malloc(len / 2);
         memcpy(buf2, ((uint8*)tmp) + len / 2, len / 2);
 
         t->len = len;   /* Two stereo, 4-bit samples */
@@ -223,10 +225,10 @@ sfxhnd_t snd_sfx_load(const char *fn) {
         t->locl = snd_mem_malloc(len / 2);
         t->locr = snd_mem_malloc(len / 2);
 
-        if(t->locl)
+        if (t->locl)
             spu_memload(t->locl, tmp, len / 2);
 
-        if(t->locr)
+        if (t->locr)
             spu_memload(t->locr, buf2, len / 2);
 
         t->stereo = 1;
@@ -239,23 +241,349 @@ sfxhnd_t snd_sfx_load(const char *fn) {
         t = SFXHND_INVALID;
     }
 
-    if(ownmem)
+    if (ownmem)
         free(tmp);
 
-    if(t != SFXHND_INVALID) 
+    if (t != SFXHND_INVALID)
         LIST_INSERT_HEAD(&snd_effects, t, list);
 
     return (sfxhnd_t)t;
 }
 
+
+sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
+{
+    //file_t  fd;
+    int fp;
+    uint32  len, hz;
+    uint16* tmp, stereo, bitsize, fmt;
+    snd_effect_t* t;
+    int ownmem;
+
+    //dbglog(DBG_DEBUG, "snd_sfx: loading effect %s\n", fn);
+
+    if (reader == NULL) {
+        dbglog(DBG_WARNING, "snd_sfx_loadEx: invalid NULL parameter (reader)\n");
+        return SFXHND_INVALID;
+    }
+
+    fp = reader->Open(fn);
+
+    if (fp == NULL) {
+        dbglog(DBG_WARNING, "snd_sfx: can't open sfx %s\n", fn);
+        return SFXHND_INVALID;
+    }
+
+    /* Check file magic */
+    hz = 0;
+
+    reader->Seek(0x08, SEEK_SET);
+    reader->Read(&hz,4);
+
+    //fs_seek(fd, 0x08, SEEK_SET);
+    //fs_read(fd, &hz, 4);
+
+    if (strncmp((char*)&hz, "WAVE", 4)) {
+        dbglog(DBG_WARNING, "snd_sfx: file is not RIFF WAVE\n");
+        //fs_close(fd);
+        reader->Close();
+        return SFXHND_INVALID;
+    }
+
+    /* Read WAV header info */
+    reader->Seek(0x14, SEEK_SET);
+    reader->Read(&fmt, 2);
+    reader->Read(&stereo, 2);
+    reader->Read(&hz, 4);
+    reader->Seek(0x22, SEEK_SET);
+    reader->Read(&bitsize, 2);
+
+    /*
+    fs_seek(fd, 0x14, SEEK_SET);
+    fs_read(fd, &fmt, 2);
+    fs_read(fd, &stereo, 2);
+    fs_read(fd, &hz, 4);
+    fs_seek(fd, 0x22, SEEK_SET);
+    fs_read(fd, &bitsize, 2);
+    */
+
+    /* Read WAV data */
+    reader->Seek(0x28, SEEK_SET);
+    reader->Read(&len, 4);
+    /*
+    fs_seek(fd, 0x28, SEEK_SET);
+    fs_read(fd, &len, 4);
+    */
+
+    /*
+    dbglog(DBG_DEBUG, "WAVE file is %s, %luHZ, %d bits/sample, %lu bytes total,"
+        " format %d\n", stereo == 1 ? "mono" : "stereo", hz, bitsize, len, fmt);
+    */
+
+    /* Try to mmap it and if that works, no need to copy it again */
+    ownmem = 0;
+
+    #if 1
+    tmp = malloc(len);
+    if (tmp == NULL) {
+        dbglog(DBG_WARNING, "snd_sfx: allocation error(0) for sfx %s\n", fn);
+        return SFXHND_INVALID;
+    }
+    reader->Read(tmp, len);
+    //fs_read(fd, tmp, len);
+    ownmem = 1;
+
+    #else
+    tmp = (uint16*)fs_mmap(fd);
+
+    if (!tmp) {
+        tmp = malloc(len);
+        fs_read(fd, tmp, len);
+        ownmem = 1;
+    }
+    else {
+        tmp = (uint16*)(((uint8*)tmp) + fs_tell(fd));
+    }
+    #endif
+    
+
+    reader->Close();
+    //fs_close(fd);
+
+    t = malloc(sizeof(snd_effect_t));
+    if (t == NULL) {
+        free(tmp);
+        dbglog(DBG_WARNING, "snd_sfx: allocation error(1) for sfx %s\n", fn);
+        return SFXHND_INVALID;
+    }
+
+    memset(t, 0, sizeof(snd_effect_t));
+
+    /* Common characteristics not impacted by stream type */
+    t->rate = hz;
+    t->stereo = stereo - 1;
+
+    if (stereo == 1) {
+        /* Mono PCM/ADPCM */
+        t->len = len / 2; /* 16-bit samples */
+        t->locl = snd_mem_malloc(len);
+
+        if (t->locl)
+            spu_memload(t->locl, tmp, len);
+
+        t->locr = 0;
+
+        if (fmt == 20) {
+            t->fmt = AICA_SM_ADPCM;
+            t->len *= 4;    /* 4-bit packed samples */
+        }
+        else
+            t->fmt = AICA_SM_16BIT;
+    }
+    else if (stereo == 2 && fmt == 1) {
+        /* Stereo PCM */
+        uint32 i;
+        uint16* sepbuf;
+
+        sepbuf = malloc(len / 2);
+        if (sepbuf == NULL) {
+            free(t);
+            free(tmp);
+            dbglog(DBG_WARNING, "snd_sfx: allocation error(2) for sfx %s\n", fn);
+            return SFXHND_INVALID;
+        }
+
+        for (i = 0; i < len / 2; i += 2) {
+            sepbuf[i / 2] = tmp[i + 1];
+        }
+
+        for (i = 0; i < len / 2; i += 2) {
+            tmp[i / 2] = tmp[i];
+        }
+
+        t->len = len / 4; /* Two stereo, 16-bit samples */
+        t->locl = snd_mem_malloc(len / 2);
+        t->locr = snd_mem_malloc(len / 2);
+
+        if (t->locl)
+            spu_memload(t->locl, tmp, len / 2);
+
+        if (t->locr)
+            spu_memload(t->locr, sepbuf, len / 2);
+
+        t->fmt = AICA_SM_16BIT;
+
+        free(sepbuf);
+    }
+    else if (stereo == 2 && fmt == 20) {
+        /* Stereo ADPCM */
+
+        /* We have to be careful here, because the second sample might not
+           start on a nice even dword boundary. We take the easy way out
+           and just malloc a second buffer. */
+        uint8* buf2 = malloc(len / 2);
+        if (buf2 == NULL) {
+            free(t);
+            free(tmp);
+            dbglog(DBG_WARNING, "snd_sfx: allocation error(3) for sfx %s\n", fn);
+            return SFXHND_INVALID;
+        }
+
+        memcpy(buf2, ((uint8*)tmp) + len / 2, len / 2);
+
+        t->len = len;   /* Two stereo, 4-bit samples */
+        t->locl = snd_mem_malloc(len / 2);
+        t->locr = snd_mem_malloc(len / 2);
+
+        if (t->locl)
+            spu_memload(t->locl, tmp, len / 2);
+
+        if (t->locr)
+            spu_memload(t->locr, buf2, len / 2);
+
+        t->fmt = AICA_SM_ADPCM;
+
+        free(buf2);
+    }
+    else {
+        free(t);
+        t = SFXHND_INVALID;
+    }
+
+    if (ownmem)
+        free(tmp);
+
+    if (t != SFXHND_INVALID)
+        LIST_INSERT_HEAD(&snd_effects, t, list);
+
+    return (sfxhnd_t)t;
+}
+
+
+sfxhnd_t snd_sfx_load_mem(uint16* pSample, uint8 adpcm, uint16 freq, uint8 chan, uint32 len)
+{
+    snd_effect_t* t;
+
+    if (pSample == NULL || !len) {
+        dbglog(DBG_WARNING, "snd_sfx_load_mem: invalid NULL parameter\n");
+        return SFXHND_INVALID;
+    }
+
+    t = malloc(sizeof(snd_effect_t));
+    if (t == NULL) {
+        dbglog(DBG_WARNING, "snd_sfx_load_mem: allocation error(0)\n");
+        return SFXHND_INVALID;
+    }
+    memset(t, 0, sizeof(snd_effect_t));
+
+    /* Common characteristics not impacted by stream type */
+    t->rate = freq;
+    t->stereo = chan;
+
+    if (chan == 0) {
+        /* Mono PCM/ADPCM */
+        t->len = len / 2; /* 16-bit samples */
+        t->locl = snd_mem_malloc(len);
+
+        if (t->locl)
+            spu_memload(t->locl, pSample, len);
+
+        t->locr = 0;
+
+        if (adpcm) {
+            t->fmt = AICA_SM_ADPCM;
+            t->len *= 4;    /* 4-bit packed samples */
+        }
+        else
+            t->fmt = AICA_SM_16BIT;
+    }
+    else 
+    if (chan == 1 && !adpcm) {
+        /* Stereo PCM */
+        uint32 i;
+        uint16* sepbuf;
+
+        sepbuf = malloc(len / 2);
+        if (sepbuf == NULL) {
+            free(t);
+            dbglog(DBG_WARNING, "snd_sfx_load_mem: allocation error(1)\n");
+            return SFXHND_INVALID;
+        }
+
+        for (i = 0; i < len / 2; i += 2) {
+            sepbuf[i / 2] = pSample[i + 1];
+        }
+
+        for (i = 0; i < len / 2; i += 2) {
+            pSample[i / 2] = pSample[i];
+        }
+
+        t->len = len / 4; /* Two stereo, 16-bit samples */
+        t->locl = snd_mem_malloc(len / 2);
+        t->locr = snd_mem_malloc(len / 2);
+
+        if (t->locl)
+            spu_memload(t->locl, pSample, len / 2);
+
+        if (t->locr)
+            spu_memload(t->locr, sepbuf, len / 2);
+
+        t->fmt = AICA_SM_16BIT;
+
+        free(sepbuf);
+    }
+    else 
+    if (chan == 1 && adpcm) {
+        /* Stereo ADPCM */
+
+        /* We have to be careful here, because the second sample might not
+           start on a nice even dword boundary. We take the easy way out
+           and just malloc a second buffer. */
+        uint8* buf2 = malloc(len / 2);
+        if (buf2 == NULL) {
+            free(t);
+            dbglog(DBG_WARNING, "snd_sfx_load_mem: allocation error(2)\n");
+            return SFXHND_INVALID;
+        }
+
+        memcpy(buf2, ((uint8*)pSample) + len / 2, len / 2);
+
+        t->len = len;   /* Two stereo, 4-bit samples */
+        t->locl = snd_mem_malloc(len / 2);
+        t->locr = snd_mem_malloc(len / 2);
+
+        if (t->locl)
+            spu_memload(t->locl, pSample, len / 2);
+
+        if (t->locr)
+            spu_memload(t->locr, buf2, len / 2);
+
+        t->fmt = AICA_SM_ADPCM;
+
+        free(buf2);
+    }
+    else {
+        free(t);
+        t = SFXHND_INVALID;
+    }
+
+    if (t != SFXHND_INVALID)
+        LIST_INSERT_HEAD(&snd_effects, t, list);
+
+    return (sfxhnd_t)t;
+}
+
+
+
+
 int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan) {
     int size;
-    snd_effect_t * t = (snd_effect_t *)idx;
+    snd_effect_t* t = (snd_effect_t*)idx;
     AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
 
     size = t->len;
 
-    if(size >= 65535) size = 65534;
+    if (size >= 65535) size = 65534;
 
     cmd->cmd = AICA_CMD_CHAN;
     cmd->timestamp = 0;
@@ -270,12 +598,12 @@ int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan) {
     chan->loopend = size;
     chan->freq = t->rate;
     chan->vol = vol;
-    
-    if(!t->stereo) {        
+
+    if (!t->stereo) {
         chan->pan = pan;
         snd_sh4_to_aica(tmp, cmd->size);
     }
-    else {        
+    else {
         chan->pan = 0;
 
         snd_sh4_to_aica_stop();
@@ -299,10 +627,10 @@ int snd_sfx_play(sfxhnd_t idx, int vol, int pan) {
     chn = sfx_nextchan;
     moved = 0;
 
-    while(sfx_inuse & (1 << chn)) {
+    while (sfx_inuse & (1 << chn)) {
         chn = (chn + 1) % 64;
 
-        if(sfx_nextchan == chn)
+        if (sfx_nextchan == chn)
             break;
 
         moved++;
@@ -310,7 +638,7 @@ int snd_sfx_play(sfxhnd_t idx, int vol, int pan) {
 
     irq_restore(old);
 
-    if(moved && chn == sfx_nextchan) {
+    if (moved && chn == sfx_nextchan) {
         return -1;
     }
     else {
@@ -341,8 +669,8 @@ void snd_sfx_stop(int chn) {
 void snd_sfx_stop_all() {
     int i;
 
-    for(i = 0; i < 64; i++) {
-        if(sfx_inuse & (1 << i))
+    for (i = 0; i < 64; i++) {
+        if (sfx_inuse & (1 << i))
             continue;
 
         snd_sfx_stop(i);
@@ -354,11 +682,11 @@ int snd_sfx_chn_alloc() {
 
     old = irq_disable();
 
-    for(chn = 0; chn < 64; chn++)
-        if(!(sfx_inuse & (1 << chn)))
+    for (chn = 0; chn < 64; chn++)
+        if (!(sfx_inuse & (1 << chn)))
             break;
 
-    if(chn >= 64)
+    if (chn >= 64)
         chn = -1;
     else
         sfx_inuse |= 1 << chn;

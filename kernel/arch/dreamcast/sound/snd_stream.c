@@ -88,7 +88,14 @@ typedef struct strchan {
 static strchan_t streams[SND_STREAM_MAX];
 
 // Separation buffers (for stereo)
-int16 * sep_buffer[2] = { NULL, NULL };
+static int16 * sep_buffer[2] = { NULL, NULL };
+
+// Buffer size
+static uint32 _snd_stream_buffer_size = SND_STREAM_BUFFER_MAX;
+
+// Nb Streams
+static uint32 _snd_stream_nb = SND_STREAM_MAX;
+
 
 /* the address of the sound ram from the SH4 side */
 #define SPU_RAM_BASE            0xa0800000
@@ -241,6 +248,9 @@ void snd_stream_prefill(snd_stream_hnd_t hnd) {
 
 /* Initialize stream system */
 int snd_stream_init() {
+
+    _snd_stream_buffer_size = SND_STREAM_BUFFER_MAX;
+
     /* Create stereo seperation buffers */
     if(!sep_buffer[0]) {
         sep_buffer[0] = memalign(32, (SND_STREAM_BUFFER_MAX / 2));
@@ -256,6 +266,41 @@ int snd_stream_init() {
     return 0;
 }
 
+int snd_stream_initEx(uint32 bufferSize_, uint32 nbStreams_) {
+
+    if (bufferSize_ > SND_STREAM_BUFFER_MAX){
+        dbglog(DBG_WARNING, "snd_stream_initEx(): snd_initEx() buffer size can't be larger than:%x\n",SND_STREAM_BUFFER_MAX);
+        bufferSize_ = SND_STREAM_BUFFER_MAX;
+    }
+
+    if (nbStreams_ > SND_STREAM_MAX){
+        dbglog(DBG_WARNING, "snd_stream_initEx(): snd_initEx() nb streams can't be above:%u\n",SND_STREAM_MAX);
+        nbStreams_ = SND_STREAM_MAX;
+    }
+
+    _snd_stream_nb = nbStreams_;
+
+    _snd_stream_buffer_size = bufferSize_;
+
+    //todo: check pair or multiple 32 ?
+
+    /* Create stereo seperation buffers */
+    if (!sep_buffer[0]) {
+        sep_buffer[0] = memalign(32, (_snd_stream_buffer_size >> 1));
+        sep_buffer[1] = memalign(32, (_snd_stream_buffer_size >> 1));
+    }
+
+    /* Finish loading the stream driver */
+    if (snd_init() < 0) {
+        dbglog(DBG_ERROR, "snd_stream_init(): snd_init() failed, giving up\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
 snd_stream_hnd_t snd_stream_alloc(snd_stream_callback_t cb, int bufsize) {
     int i, old;
     snd_stream_hnd_t hnd;
@@ -264,7 +309,7 @@ snd_stream_hnd_t snd_stream_alloc(snd_stream_callback_t cb, int bufsize) {
     hnd = -1;
     old = irq_disable();
 
-    for(i = 0; i < SND_STREAM_MAX; i++) {
+    for(i = 0; i < _snd_stream_nb; i++) {
         if(!streams[i].initted) {
             hnd = i;
             break;
@@ -298,13 +343,30 @@ snd_stream_hnd_t snd_stream_alloc(snd_stream_callback_t cb, int bufsize) {
     // And channels
     streams[hnd].ch[0] = snd_sfx_chn_alloc();
     streams[hnd].ch[1] = snd_sfx_chn_alloc();
-    printf("snd_stream: alloc'd channels %d/%d\n", streams[hnd].ch[0], streams[hnd].ch[1]);
+    printf("snd_stream: bufSize:%d alloc'd channels %d/%d\n", bufsize,streams[hnd].ch[0], streams[hnd].ch[1]);
 
     return hnd;
 }
 
 snd_stream_hnd_t snd_stream_reinit(snd_stream_hnd_t hnd, snd_stream_callback_t cb) {
     CHECK_HND(hnd);
+
+
+    /* reset default buffer size*/
+    _snd_stream_buffer_size = SND_STREAM_BUFFER_MAX;
+
+    /* reset default nb streams */
+    _snd_stream_nb = SND_STREAM_MAX;
+
+    if (sep_buffer[0] != NULL) {
+
+        free(sep_buffer[0]);
+        free(sep_buffer[1]);
+
+        sep_buffer[0] = memalign(32, (SND_STREAM_BUFFER_MAX / 2));
+        sep_buffer[1] = memalign(32, (SND_STREAM_BUFFER_MAX / 2));
+    }
+
 
     /* Start off with queueing disabled */
     streams[hnd].queueing = 0;
@@ -346,7 +408,7 @@ void snd_stream_shutdown() {
     /* Stop and destroy all active stream */
     int i;
 
-    for(i = 0; i < SND_STREAM_MAX; i++) {
+    for(i = 0; i < _snd_stream_nb; i++) {
         if(streams[i].initted)
             snd_stream_destroy(i);
     }

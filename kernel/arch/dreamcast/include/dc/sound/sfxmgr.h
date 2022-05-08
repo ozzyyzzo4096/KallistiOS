@@ -52,6 +52,45 @@ typedef uint32 sfxhnd_t;
 */
 sfxhnd_t snd_sfx_load(const char *fn);
 
+typedef struct SFXMGR_READER {
+    int (*Open)(char*);
+    int (*Close)(void);
+    int (*Seek)(int, int);
+    int (*Read)(void*, size_t);
+} SFXMGR_READER;
+
+/** \brief  Load a sound effect (extra).
+
+    This function loads a sound effect from a WAV file and returns a handle to
+    it. The sound effect can be either stereo or mono, and must either be 16-bit
+    uncompressed PCM samples or 4-bit Yamaha ADPCM.
+
+    \param  fn              The file to load.
+    \param  reader          alternative reader to get samples from other places than plain files.
+    \return                 A handle to the sound effect on success. On error,
+                            SFXHND_INVALID is returned.
+*/
+sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader);
+
+/** \brief  Load a sound effect from memory.
+
+    This function loads a sound effect from a raw buffer and returns a handle to
+    it. The sound effect can be either stereo or mono, and must either be 16-bit
+    uncompressed PCM samples or 4-bit Yamaha ADPCM.
+
+    \param  pSample         Either PCM or ADPCM buffer (without any header, only start of data)
+    \param  adpcm           0 specify PCM , 1 for ADPCM
+    \param  freq            Frequency in Hz
+    \param  chan            0 for Mono , 1 for Stereo
+    \param  len             Sample byte lenght.
+
+    \return                 A handle to the sound effect on success. On error,
+                            SFXHND_INVALID is returned.
+*/
+
+sfxhnd_t snd_sfx_load_mem(uint16* pSample, uint8 adpcm, uint16 freq, uint8 chan, uint32 len);
+
+
 /** \brief  Unload a sound effect.
 
     This function unloads a previously loaded sound effect, and frees the memory

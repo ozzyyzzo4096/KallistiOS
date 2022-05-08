@@ -168,6 +168,23 @@ void snd_stream_prefill(snd_stream_hnd_t hnd);
 */
 int snd_stream_init();
 
+/** \brief  Initialize 'Extra' the stream system.
+
+    This function initializes the sound stream system and allocates memory for
+    it as needed. Note, this is not done by the default init, so if you're using
+    the streaming support and not using something like the kos-ports Ogg Vorbis
+    library, you'll need to call this yourself. This will implicitly call
+    snd_init(), so it will potentially overwrite anything going on the AICA.
+
+    \param  bufferSize_     prefered sound buffer size (hints: 4096,8192(mono,stereo)
+    \param  nbStreams_      maximum of streams involvded (hints: 2 to 4)
+
+    \retval -1              On failure.
+    \retval 0               On success.
+*/
+
+int snd_stream_initEx(uint32 bufferSize_, uint32 nbStreams_);
+
 /** \brief  Shut down the stream system.
 
     This function shuts down the stream system and frees the memory associated
@@ -194,6 +211,9 @@ snd_stream_hnd_t snd_stream_alloc(snd_stream_callback_t cb, int bufsize);
     \param  cb              The new get data callback for the stream.
     \return                 hnd
 */
+
+
+
 int snd_stream_reinit(snd_stream_hnd_t hnd, snd_stream_callback_t cb);
 
 /** \brief  Destroy a stream.
