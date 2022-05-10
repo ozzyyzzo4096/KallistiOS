@@ -79,7 +79,7 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader);
     uncompressed PCM samples or 4-bit Yamaha ADPCM.
 
     \param  pSample         Either PCM or ADPCM buffer (without any header, only start of data)
-    \param  adpcm           0 specify PCM , 1 for ADPCM
+    \param  format          AICA_SM_8BIT, AICA_SM_16BIT, AICA_SM_ADPCM
     \param  freq            Frequency in Hz
     \param  chan            0 for Mono , 1 for Stereo
     \param  len             Sample byte lenght.
@@ -88,7 +88,7 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader);
                             SFXHND_INVALID is returned.
 */
 
-sfxhnd_t snd_sfx_load_mem(uint16* pSample, uint8 adpcm, uint16 freq, uint8 chan, uint32 len);
+sfxhnd_t snd_sfx_load_mem(void* pSample, uint8 format, uint16 freq, uint8 chan, uint32 len);
 
 
 /** \brief  Unload a sound effect.
@@ -142,6 +142,66 @@ int snd_sfx_play(sfxhnd_t idx, int vol, int pan);
     \return                 chn
 */
 int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan);
+
+/** \brief  Play a sound effect on a specific channel. (full options)
+
+    This function works similar to snd_sfx_play(), but allows you to specify the
+    channel to play on. No error checking is done with regard to the channel, so
+    be sure its safe to play on that channel before trying.
+
+    \param  chn             The channel to play on (or in the case of stereo,
+                            the left channel).
+    \param  idx             The handle to the sound effect to play.
+    \param  start           Start position (in samples)
+    \param  end             End position (in samples)
+    \param  looping         Channel is looping. (0 no loop, 1 looping)
+    \param  loopStart       Looping start position (in samples)
+    \param  loopEnd         Looping end position (in samples)
+    \param  freq            Frequency (in Hz)
+    \param  vol             The volume to play at (between 0 and 255).
+    \param  pan             The panning value of the sound effect. 0 is all the
+                            way to the left, 128 is center, 255 is all the way
+                            to the right.
+
+    \return                 chn
+*/
+
+int snd_sfx_play_chnEx(int chn, sfxhnd_t idx_, int start_, int end_, int looping_, int loopStart_, int loopEnd_, int freq_, int vol_, int pan_);
+
+/** \brief  Update volume of a sound effect on a specific channel.
+
+    \param  chn             The channel to play on (or in the case of stereo,
+                            the left channel).
+    \param  idx             The handle to the sound effect to play.
+    \param  vol             The volume to update at (between 0 and 255).
+
+*/
+
+void snd_sfx_update_volume(int chan_, sfxhnd_t idx_, int vol_);
+
+/** \brief  Update frequency of a sound effect on a specific channel.
+
+    \param  chn             The channel to play on (or in the case of stereo,
+                            the left channel).
+    \param  idx             The handle to the sound effect to play.
+    \param  freq            The frequency to update at (in hz).
+
+*/
+
+void snd_sfx_update_frequency(int chan_, sfxhnd_t idx_, int freq_);
+
+/** \brief  Update panning of a sound effect on a specific channel.
+
+    \param  chn             The channel to play on (or in the case of stereo,
+                            the left channel).
+    \param  idx             The handle to the sound effect to play.
+    \param  pan             The panning to update at (0 is all the way to the left, 128 is center, 255 is all the way
+                            to the right.)
+
+*/
+
+void snd_sfx_update_pan(int chan_, sfxhnd_t idx_, int pan_);
+
 
 /** \brief  Stop a single channel of sound.
 
