@@ -3,6 +3,8 @@
    dc/sound/stream.h
    Copyright (C) 2002, 2004 Dan Potter
    Copyright (C) 2020 Lawrence Sebald
+   May 2022 Ozzy added more control over latencty (buffer size and stream numbers)
+
 
 */
 

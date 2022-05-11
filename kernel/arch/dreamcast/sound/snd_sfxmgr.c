@@ -5,6 +5,8 @@
 
    Sound effects management system; this thing loads and plays sound effects
    during game operation.
+
+   May 2022 Ozzy : Extended support 8bit samples, update functionalities and alternate loading.
 */
 
 #include <stdio.h>

@@ -3,6 +3,8 @@
    dc/sound/sfxmgr.h
    Copyright (C) 2002 Dan Potter
 
+   May 2022 Ozzy : Extended support 8bit samples, update functionalities and alternate loading.
+
 */
 
 /** \file   dc/sound/sfxmgr.h
@@ -82,7 +84,7 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader);
     \param  format          AICA_SM_8BIT, AICA_SM_16BIT, AICA_SM_ADPCM
     \param  freq            Frequency in Hz
     \param  chan            0 for Mono , 1 for Stereo
-    \param  len             Sample byte lenght.
+    \param  len             Sample byte length.
 
     \return                 A handle to the sound effect on success. On error,
                             SFXHND_INVALID is returned.

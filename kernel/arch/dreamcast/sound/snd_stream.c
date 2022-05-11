@@ -5,6 +5,8 @@
    Copyright (C) 2002 Florian Schulze
    Copyright (C) 2020 Lawrence Sebald
 
+   May 2022 Ozzy added more control over latencty (buffer size and stream numbers)
+
    SH-4 support routines for SPU streaming sound driver
 */
 
