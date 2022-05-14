@@ -2,11 +2,10 @@
 
    snd_sfxmgr.c
    Copyright (C) 2000, 2001, 2002, 2003, 2004 Dan Potter
+   Copyright (C) 2022 Ozzy Ouzo :)
 
    Sound effects management system; this thing loads and plays sound effects
    during game operation.
-
-   May 2022 Ozzy : Extended support 8bit samples, update functionalities and alternate loading.
 */
 
 #include <stdio.h>
@@ -29,10 +28,15 @@ LIST_HEAD(selist, snd_effect);
 typedef struct snd_effect {
     uint32  locl, locr;
     uint32  len;
-    uint32  rate;
-    uint32  used;
-    uint16  stereo;
-    uint32  fmt;
+    uint16  rate;
+    union {
+        struct {
+            uint16	    used : 1;
+            uint16		stereo : 1;
+            uint16		fmt : 2;
+        }infos;
+        uint16			informations;
+    };
 
     LIST_ENTRY(snd_effect)  list;
 } snd_effect_t;
@@ -56,7 +60,7 @@ void snd_sfx_unload_all() {
 
         snd_mem_free(t->locl);
 
-        if (t->stereo)
+        if (t->infos.stereo)
             snd_mem_free(t->locr);
 
         free(t);
@@ -78,7 +82,7 @@ void snd_sfx_unload(sfxhnd_t idx) {
 
     snd_mem_free(t->locl);
 
-    if (t->stereo)
+    if (t->infos.stereo)
         snd_mem_free(t->locr);
 
     LIST_REMOVE(t, list);
@@ -101,12 +105,10 @@ void snd_sfx_unload(sfxhnd_t idx) {
  /* Load a sound effect from a WAV file and return a handle to it */
 sfxhnd_t snd_sfx_load(const char* fn) {
     file_t  fd;
-    uint32  len, hz , avgBytesPerSec, blockAlign;
+    uint32  len, hz , avgBytesPerSec, blockAlign,loopStart,loopEnd;
     uint16* tmp, stereo, bitsize, fmt;
     snd_effect_t* t;
     int ownmem;
-
-    //dbglog(DBG_DEBUG, "snd_sfx: loading effect %s\n", fn);
 
     fd = fs_open(fn, O_RDONLY);
 
@@ -165,7 +167,7 @@ sfxhnd_t snd_sfx_load(const char* fn) {
 
     /* Common characteristics not impacted by stream type */
     t->rate = hz;
-    t->stereo = stereo - 1;
+    t->infos.stereo = stereo - 1;
 
     if (stereo == 1) {
         /* Mono PCM/ADPCM */
@@ -181,18 +183,17 @@ sfxhnd_t snd_sfx_load(const char* fn) {
             spu_memload(t->locl, tmp, len);
 
         t->locr = 0;
-        t->stereo = 0;
 
         if (fmt == 20) {
-            t->fmt = AICA_SM_ADPCM;
+            t->infos.fmt = AICA_SM_ADPCM;
             t->len *= 4;    /* 4-bit packed samples */
         }
         else {
             if (blockAlign == 2) {
-                t->fmt = AICA_SM_16BIT;
+                t->infos.fmt = AICA_SM_16BIT;
             }
             else {
-                t->fmt = AICA_SM_8BIT;
+                t->infos.fmt = AICA_SM_8BIT;
             }
         }
     }
@@ -232,8 +233,7 @@ sfxhnd_t snd_sfx_load(const char* fn) {
         if (t->locr)
             spu_memload(t->locr, sepbuf, len / 2);
 
-        t->stereo = 1;
-        t->fmt = AICA_SM_16BIT;
+        t->infos.fmt = AICA_SM_16BIT;
 
         free(sepbuf);
     }
@@ -257,8 +257,7 @@ sfxhnd_t snd_sfx_load(const char* fn) {
         if (t->locr)
             spu_memload(t->locr, buf2, len / 2);
 
-        t->stereo = 1;
-        t->fmt = AICA_SM_ADPCM;
+        t->infos.fmt = AICA_SM_ADPCM;
 
         free(buf2);
     }
@@ -279,14 +278,11 @@ sfxhnd_t snd_sfx_load(const char* fn) {
 
 sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
 {
-    //file_t  fd;
     int fp;
     uint32  len, hz, avgBytesPerSec, blockAlign;
     uint16* tmp, stereo, bitsize, fmt;
     snd_effect_t* t;
     int ownmem;
-
-    //dbglog(DBG_DEBUG, "snd_sfx: loading effect %s\n", fn);
 
     if (reader == NULL) {
         dbglog(DBG_WARNING, "snd_sfx_loadEx: invalid NULL parameter (reader)\n");
@@ -306,12 +302,8 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
     reader->Seek(0x08, SEEK_SET);
     reader->Read(&hz,4);
 
-    //fs_seek(fd, 0x08, SEEK_SET);
-    //fs_read(fd, &hz, 4);
-
     if (strncmp((char*)&hz, "WAVE", 4)) {
         dbglog(DBG_WARNING, "snd_sfx: file is not RIFF WAVE\n");
-        //fs_close(fd);
         reader->Close();
         return SFXHND_INVALID;
     }
@@ -375,7 +367,7 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
 
     /* Common characteristics not impacted by stream type */
     t->rate = hz;
-    t->stereo = stereo - 1;
+    t->infos.stereo = stereo - 1;
 
     if (stereo == 1) {
         /* Mono PCM/ADPCM */
@@ -391,15 +383,15 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
         t->locr = 0;
 
         if (fmt == 20) {
-            t->fmt = AICA_SM_ADPCM;
+            t->infos.fmt = AICA_SM_ADPCM;
             t->len *= 4;    /* 4-bit packed samples */
         }
         else {
             if (blockAlign == 2) {
-                t->fmt = AICA_SM_16BIT;
+                t->infos.fmt = AICA_SM_16BIT;
             }
             else {
-                t->fmt = AICA_SM_8BIT;
+                t->infos.fmt = AICA_SM_8BIT;
             }
         }
     }
@@ -444,7 +436,7 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
         if (t->locr)
             spu_memload(t->locr, sepbuf, len / 2);
 
-        t->fmt = AICA_SM_16BIT;
+        t->infos.fmt = AICA_SM_16BIT;
 
         free(sepbuf);
     }
@@ -474,7 +466,7 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
         if (t->locr)
             spu_memload(t->locr, buf2, len / 2);
 
-        t->fmt = AICA_SM_ADPCM;
+        t->infos.fmt = AICA_SM_ADPCM;
 
         free(buf2);
     }
@@ -514,8 +506,8 @@ sfxhnd_t snd_sfx_load_mem(void* pSample, uint8 format, uint16 freq, uint8 chan, 
 
     /* Common characteristics not impacted by stream type */
     t->rate = freq;
-    t->stereo = chan;
-    t->fmt = format;
+    t->infos.stereo = chan;
+    t->infos.fmt = format;
 
     if (chan == 0) {
         /* Mono PCM/ADPCM */
@@ -529,7 +521,6 @@ sfxhnd_t snd_sfx_load_mem(void* pSample, uint8 format, uint16 freq, uint8 chan, 
             spu_memload(t->locl, pSampleW, len);
 
         t->locr = 0;
-
         
         if (format == AICA_SM_ADPCM) {
             
@@ -610,31 +601,16 @@ sfxhnd_t snd_sfx_load_mem(void* pSample, uint8 format, uint16 freq, uint8 chan, 
 }
 
 
-int snd_sfx_play_chnEx(int chn, sfxhnd_t idx_, int start_, int end_, int looping_, int loopStart_, int loopEnd_, int freq_, int vol_, int pan_) {
-    int size,start,end,loopStart,loopEnd;
-    snd_effect_t* t = (snd_effect_t*)idx_;
+int snd_sfx_play_chnEx(int chn, sfxhnd_t idx, int start, int end, int looping, int loopStart, int loopEnd, int freq, int vol, int pan) {
+    int saveStart=start;
+    snd_effect_t* t = (snd_effect_t*)idx;
     AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
 
-    //size = t->len;
-    if (t->fmt == AICA_SM_ADPCM) {
-        start = start_ * 4;
-        end = end_ * 4;
-        loopStart = loopStart_ * 4;
-        loopEnd = loopEnd_ * 4;
-    }
-    else { 
-       #if 0
-       start = start_>>1;
-       end = end_ >> 1;
-       loopStart = loopStart_>>1;
-       loopEnd = loopEnd_>>1;
-       #else
-        start = start_;
-        end = end_;
-        loopStart = loopStart_;
-        loopEnd = loopEnd_;
-        #endif
-
+    if (t->infos.fmt == AICA_SM_ADPCM) {
+        start *= 4;
+        end *= 4;
+        loopStart *= 4;
+        loopEnd *= 4;
     }
 
     if (start >= 65535) start = 65534;
@@ -647,18 +623,18 @@ int snd_sfx_play_chnEx(int chn, sfxhnd_t idx_, int start_, int end_, int looping
     cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
     cmd->cmd_id = chn;
     chan->cmd = AICA_CH_CMD_START;
-    chan->base = t->locl+start_;
-    chan->type = t->fmt;
+    chan->base = t->locl+saveStart;
+    chan->type = t->infos.fmt;
     chan->length = end;
-    chan->loop = looping_;
+    chan->loop = looping;
     chan->loopstart = loopStart;
     chan->loopend = loopEnd;
-    chan->freq = freq_;
+    chan->freq = freq;
     chan->pos = 0; //unused
-    chan->vol = vol_;
+    chan->vol = vol;
 
-    if (!t->stereo) {
-        chan->pan = pan_;
+    if (!t->infos.stereo) {
+        chan->pan = pan;
         snd_sh4_to_aica(tmp, cmd->size);
     }
     else {
@@ -694,7 +670,7 @@ int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan) {
     cmd->cmd_id = chn;
     chan->cmd = AICA_CH_CMD_START;
     chan->base = t->locl;
-    chan->type = t->fmt;
+    chan->type = t->infos.fmt;
     chan->length = size;
     chan->loop = 0;
     chan->loopstart = 0;
@@ -702,7 +678,7 @@ int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan) {
     chan->freq = t->rate;
     chan->vol = vol;
 
-    if (!t->stereo) {
+    if (!t->infos.stereo) {
         chan->pan = pan;
         snd_sh4_to_aica(tmp, cmd->size);
     }
@@ -751,59 +727,59 @@ int snd_sfx_play(sfxhnd_t idx, int vol, int pan) {
 }
 
 
-void snd_sfx_update_volume(int chan_, sfxhnd_t idx_, int vol_) {
-    snd_effect_t* t = (snd_effect_t*)idx_;
+void snd_sfx_update_volume(int channel, sfxhnd_t idx, int vol) {
+    snd_effect_t* t = (snd_effect_t*)idx;
 
     AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
 
     cmd->cmd = AICA_CMD_CHAN;
     cmd->timestamp = 0;
     cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
-    cmd->cmd_id = chan_;
+    cmd->cmd_id = channel;
     chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_VOL;
-    chan->vol = vol_;
+    chan->vol = vol;
     snd_sh4_to_aica(tmp, cmd->size);
 
-    if (t->stereo) {
-        cmd->cmd_id = chan_ + 1;
+    if (t->infos.stereo) {
+        cmd->cmd_id = chan + 1;
         snd_sh4_to_aica(tmp, cmd->size);
     }
 }
 
-void snd_sfx_update_frequency(int chan_, sfxhnd_t idx_, int freq_) {
-    snd_effect_t* t = (snd_effect_t*)idx_;
+void snd_sfx_update_frequency(int channel, sfxhnd_t idx, int freq) {
+    snd_effect_t* t = (snd_effect_t*)idx;
 
     AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
 
     cmd->cmd = AICA_CMD_CHAN;
     cmd->timestamp = 0;
     cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
-    cmd->cmd_id = chan_;
+    cmd->cmd_id = channel;
     chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_FREQ;
-    chan->freq = freq_;
+    chan->freq = freq;
     snd_sh4_to_aica(tmp, cmd->size);
 
-    if (t->stereo) {
-        cmd->cmd_id = chan_ + 1;
+    if (t->infos.stereo) {
+        cmd->cmd_id = chan + 1;
         snd_sh4_to_aica(tmp, cmd->size);
     }
 }
 
-void snd_sfx_update_pan(int chan_, sfxhnd_t idx_, int pan_) {
-    snd_effect_t* t = (snd_effect_t*)idx_;
+void snd_sfx_update_pan(int channel, sfxhnd_t idx, int pan) {
+    snd_effect_t* t = (snd_effect_t*)idx;
 
     AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
 
     cmd->cmd = AICA_CMD_CHAN;
     cmd->timestamp = 0;
     cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
-    cmd->cmd_id = chan_;
+    cmd->cmd_id = channel;
     chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_PAN;
-    chan->pan = pan_;
+    chan->pan = pan;
     snd_sh4_to_aica(tmp, cmd->size);
 
-    if (!t->stereo) {
-        chan->pan = pan_;
+    if (!t->infos.stereo) {
+        chan->pan = pan;
         snd_sh4_to_aica(tmp, cmd->size);
     }
     else {
@@ -812,7 +788,7 @@ void snd_sfx_update_pan(int chan_, sfxhnd_t idx_, int pan_) {
         snd_sh4_to_aica_stop();
         snd_sh4_to_aica(tmp, cmd->size);
 
-        cmd->cmd_id = chan_ + 1;
+        cmd->cmd_id = chan + 1;
         chan->base = t->locr;
         chan->pan = 255;
         snd_sh4_to_aica(tmp, cmd->size);

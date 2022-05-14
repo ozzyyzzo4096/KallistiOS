@@ -2,8 +2,7 @@
 
    dc/sound/sfxmgr.h
    Copyright (C) 2002 Dan Potter
-
-   May 2022 Ozzy : Extended support 8bit samples, update functionalities and alternate loading.
+   Copyright (C) 2022 Ozzy Ouzo :)
 
 */
 
@@ -55,7 +54,7 @@ typedef uint32 sfxhnd_t;
 sfxhnd_t snd_sfx_load(const char *fn);
 
 typedef struct SFXMGR_READER {
-    int (*Open)(char*);
+    int (*Open)(const char*);
     int (*Close)(void);
     int (*Seek)(int, int);
     int (*Read)(void*, size_t);
@@ -168,7 +167,7 @@ int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan);
     \return                 chn
 */
 
-int snd_sfx_play_chnEx(int chn, sfxhnd_t idx_, int start_, int end_, int looping_, int loopStart_, int loopEnd_, int freq_, int vol_, int pan_);
+int snd_sfx_play_chnEx(int chn, sfxhnd_t idx, int start, int end, int looping, int loopStart, int loopEnd, int freq, int vol, int pan);
 
 /** \brief  Update volume of a sound effect on a specific channel.
 
@@ -179,7 +178,7 @@ int snd_sfx_play_chnEx(int chn, sfxhnd_t idx_, int start_, int end_, int looping
 
 */
 
-void snd_sfx_update_volume(int chan_, sfxhnd_t idx_, int vol_);
+void snd_sfx_update_volume(int chan, sfxhnd_t idx, int vol);
 
 /** \brief  Update frequency of a sound effect on a specific channel.
 
@@ -190,7 +189,7 @@ void snd_sfx_update_volume(int chan_, sfxhnd_t idx_, int vol_);
 
 */
 
-void snd_sfx_update_frequency(int chan_, sfxhnd_t idx_, int freq_);
+void snd_sfx_update_frequency(int chan, sfxhnd_t idx, int freq);
 
 /** \brief  Update panning of a sound effect on a specific channel.
 
@@ -202,7 +201,7 @@ void snd_sfx_update_frequency(int chan_, sfxhnd_t idx_, int freq_);
 
 */
 
-void snd_sfx_update_pan(int chan_, sfxhnd_t idx_, int pan_);
+void snd_sfx_update_pan(int chan, sfxhnd_t idx, int pan);
 
 
 /** \brief  Stop a single channel of sound.

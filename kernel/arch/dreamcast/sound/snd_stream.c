@@ -4,8 +4,7 @@
    Copyright (C) 2000, 2001, 2002, 2003, 2004 Dan Potter
    Copyright (C) 2002 Florian Schulze
    Copyright (C) 2020 Lawrence Sebald
-
-   May 2022 Ozzy added more control over latencty (buffer size and stream numbers)
+   Copyright (C) 2022 Ozzy Ouzo :)
 
    SH-4 support routines for SPU streaming sound driver
 */
@@ -345,7 +344,7 @@ snd_stream_hnd_t snd_stream_alloc(snd_stream_callback_t cb, int bufsize) {
     // And channels
     streams[hnd].ch[0] = snd_sfx_chn_alloc();
     streams[hnd].ch[1] = snd_sfx_chn_alloc();
-    printf("snd_stream: bufSize:%d alloc'd channels %d/%d\n", bufsize,streams[hnd].ch[0], streams[hnd].ch[1]);
+    //printf("snd_stream: bufSize:%d alloc'd channels %d/%d\n", bufsize,streams[hnd].ch[0], streams[hnd].ch[1]);
 
     return hnd;
 }
