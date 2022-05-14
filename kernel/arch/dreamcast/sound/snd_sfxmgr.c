@@ -98,7 +98,9 @@ void snd_sfx_unload(sfxhnd_t idx) {
     0x28    -- long  data length
     0x2c    -- data start
 
-    Ozzy: *not* supporting 8bit stereo sorry..
+    note:
+    Could be follwed by optional smpl chunk for loop informations.
+    (but not implemented yet at this level)
 
  */
 
