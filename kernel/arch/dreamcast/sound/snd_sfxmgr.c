@@ -325,8 +325,11 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
     reader->Seek(0x28, SEEK_SET);
     reader->Read(&len, 4);
 
+    /*
     dbglog(DBG_DEBUG, "WAVE file is %s, %luHZ, %d bits/sample, %lu bytes total,"
         " format %d\n", stereo == 1 ? "mono" : "stereo", hz, bitsize, len, fmt);
+    */
+
 
     /* Try to mmap it and if that works, no need to copy it again */
     ownmem = 0;
