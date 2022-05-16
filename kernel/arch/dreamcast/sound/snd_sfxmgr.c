@@ -325,10 +325,8 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
     reader->Seek(0x28, SEEK_SET);
     reader->Read(&len, 4);
 
-    /*
     dbglog(DBG_DEBUG, "WAVE file is %s, %luHZ, %d bits/sample, %lu bytes total,"
         " format %d\n", stereo == 1 ? "mono" : "stereo", hz, bitsize, len, fmt);
-    */
 
     /* Try to mmap it and if that works, no need to copy it again */
     ownmem = 0;
@@ -370,17 +368,20 @@ sfxhnd_t snd_sfx_loadEx(const char* fn, SFXMGR_READER* reader)
     /* Common characteristics not impacted by stream type */
     t->rate = hz;
     t->infos.stereo = stereo - 1;
+    
 
     if (stereo == 1) {
         /* Mono PCM/ADPCM */
+        t->len = len;
         if (blockAlign == 2 || fmt == 20) { /* 16-bit samples */
             t->len >>= 1;
         }
 
         t->locl = snd_mem_malloc(len);
 
-        if (t->locl)
+        if (t->locl) {
             spu_memload(t->locl, tmp, len);
+        }
 
         t->locr = 0;
 
@@ -681,8 +682,11 @@ int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan) {
     chan->vol = vol;
 
     if (!t->infos.stereo) {
+
         chan->pan = pan;
         snd_sh4_to_aica(tmp, cmd->size);
+
+        snd_sh4_to_aica_start();
     }
     else {
         chan->pan = 0;
