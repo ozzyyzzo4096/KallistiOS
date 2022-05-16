@@ -685,8 +685,6 @@ int snd_sfx_play_chn(int chn, sfxhnd_t idx, int vol, int pan) {
 
         chan->pan = pan;
         snd_sh4_to_aica(tmp, cmd->size);
-
-        snd_sh4_to_aica_start();
     }
     else {
         chan->pan = 0;
