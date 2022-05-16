@@ -193,8 +193,9 @@ int wav2adpcm(const char *infile, const char *outfile) {
     uint32_t i, len, loopType = 0, start, temp, startLoop = 0, endLoop = 0;
 
     uint32_t nSampleLength = 0;//, nSampleBlockAlign = 0;
-    bool have_fmt = false;
+    bool haveFmt = false;
     bool haveLoop = false;
+    bool haveData = false;
 
 
     FILE *in, *out;
@@ -216,7 +217,7 @@ int wav2adpcm(const char *infile, const char *outfile) {
         return -1;
     }
 
-    if(memcmp(&wavhdr.hdr1[0], "RIFF", 3) || memcmp(&wavhdr.hdr2[0], "WAVE", 4)) {
+    if(memcmp(&wavhdr.hdr1[0], "RIFF", 4) || memcmp(&wavhdr.hdr2[0], "WAVE", 4)) {
         fprintf(stderr, "Unsupported format.\n");
         fclose(in);
         return -1;
@@ -229,7 +230,7 @@ int wav2adpcm(const char *infile, const char *outfile) {
         }
         fread(&len, 4, 1, in);
 
-        /* Skipped intentionally bcoz we read multiple chunks headers
+        /* Skipped intentionally bcoz we are reading multiple chunks headers
         if (hdrSize != 0x10) {
             fprintf(stderr, "Unsupported format.\n");
             fclose(in);
@@ -238,9 +239,12 @@ int wav2adpcm(const char *infile, const char *outfile) {
         */
 
         if (feof(in)) {
-            fprintf(stderr, "Invalid truncated WAVE header.\n");
-            fclose(in);
-            return -1;
+            if (!haveData) {
+                fprintf(stderr, "Invalid truncated WAVE header.\n");
+                fclose(in);
+                return -1;
+            }
+            break;
         }
 
         start = ftell(in);
@@ -278,16 +282,16 @@ int wav2adpcm(const char *infile, const char *outfile) {
                 fread(&wavhdr.blocksize, 2, 1, in);
                 fread(&wavhdr.bits, 2, 1, in);
 
-                if (have_fmt || ((wavhdr.channels != 1) && (wavhdr.channels != 2)) || wavhdr.format != 1) {
+                if (haveFmt || ((wavhdr.channels != 1) && (wavhdr.channels != 2)) || wavhdr.format != 1) {
                     fprintf(stderr, "Unsupported format.\n");
                     fclose(in);
                     return -1;
                 }
-                have_fmt = true;
+                haveFmt = true;
             }
             else {
                 if (!memcmp(dID, "data", 4)) {
-                    if (!have_fmt) {
+                    if (!haveFmt) {
                         fprintf(stderr, "Unsupported format.\n");
                         fclose(in);
                         return -1;
@@ -311,7 +315,7 @@ int wav2adpcm(const char *infile, const char *outfile) {
                         fclose(in);
                         return -1;
                     }
-
+                    haveData = true;
                 }
             }
         }
